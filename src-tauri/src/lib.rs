@@ -27,23 +27,24 @@ pub fn run() {
 
     #[cfg(target_os = "macos")]
     {
-        let builder = builder.on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "main" {
-                    api.prevent_close();
-                    let window = window.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let was_fullscreen = window.is_fullscreen().unwrap_or(false);
-                        if was_fullscreen {
-                            let _ = window.set_fullscreen(false);
-                            tauri::async_runtime::sleep(Duration::from_millis(200)).await;
-                        }
-                        let _ = window.hide();
-                    });
+        let builder = builder
+            .on_window_event(|window, event| {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    if window.label() == "main" {
+                        api.prevent_close();
+                        let window = window.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let was_fullscreen = window.is_fullscreen().unwrap_or(false);
+                            if was_fullscreen {
+                                let _ = window.set_fullscreen(false);
+                                tauri::async_runtime::sleep(Duration::from_millis(10)).await;
+                            }
+                            let _ = window.hide();
+                        });
+                    }
                 }
-            }
-        });
-        builder = builder.menu(|app| {
+            })
+            .menu(|app| {
             let app_name = app
                 .config()
                 .product_name
@@ -63,7 +64,6 @@ pub fn run() {
             )?;
             Menu::with_items(app, &[&app_menu])
         });
-    }
 
         let app = builder
             .build(tauri::generate_context!())
