@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "三国杀：一将成名",
-  "version": "1.0.337",
+  "productName": "音乐解锁 - Unlock Music",
+  "version": "0.6.0",
   "identifier": "com.yoka.sgstenth",
   "build": {
     "frontendDist": "../src"
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "三国杀：一将成名",
+        "title": "音乐解锁 - Unlock Music",
         "width": 1280,
         "height": 720,
         "backgroundColor": "#000000",
@@ -34,6 +34,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "杭州游卡网络技术有限公司"
+    "publisher": "MengYX"
   }
 }
