@@ -62,7 +62,7 @@ jobs:
         run: npm run tauri build -- ${{ matrix.args }}
 
       - name: Rename bundles
-        run: node scripts/release-assets.mjs --suffix ${{ matrix.artifact_suffix }} --out bundle-files.txt --copy-dir release-assets
+        run: node scripts/release-assets.mjs --suffix ${{ matrix.artifact_suffix }} --out bundle-files.txt --copy-dir release-assets --bundle-dir src-tauri/target/${{ matrix.target }}/release/bundle
 
       - uses: actions/upload-artifact@v4
         with:

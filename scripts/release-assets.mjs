@@ -19,6 +19,7 @@ function fail(message) {
 const suffix = readArg("--suffix");
 const outFile = readArg("--out") || "bundle-files.txt";
 const copyDir = readArg("--copy-dir");
+const bundleDirArg = readArg("--bundle-dir");
 const configPath = path.resolve(
   root,
   process.env.APP_CONFIG || "app.config.json"
@@ -37,10 +38,50 @@ const rawName = String(config.name || "").trim();
 if (!rawName) fail("Missing required field: name");
 
 const safeName = rawName.replace(/[\\/:*?"<>|]/g, "_").trim();
-const bundleDir = path.resolve(root, "src-tauri", "target", "release", "bundle");
+function findBundleDirs(baseDir) {
+  const results = [];
+  function walk(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === "bundle") {
+          const parent = path.basename(path.dirname(fullPath));
+          if (parent === "release") {
+            results.push(fullPath);
+            continue;
+          }
+        }
+        walk(fullPath);
+      }
+    }
+  }
+  if (fs.existsSync(baseDir)) {
+    walk(baseDir);
+  }
+  return results;
+}
 
-if (!fs.existsSync(bundleDir)) {
-  fail(`Bundle dir not found: ${bundleDir}`);
+let bundleDir = null;
+if (bundleDirArg) {
+  const candidate = path.resolve(root, bundleDirArg);
+  if (fs.existsSync(candidate)) {
+    bundleDir = candidate;
+  }
+}
+
+if (!bundleDir) {
+  const targetRoot = path.resolve(root, "src-tauri", "target");
+  const candidates = findBundleDirs(targetRoot);
+  if (candidates.length === 0) {
+    fail(`Bundle dir not found under: ${targetRoot}`);
+  }
+  candidates.sort((a, b) => {
+    const aStat = fs.statSync(a);
+    const bStat = fs.statSync(b);
+    return bStat.mtimeMs - aStat.mtimeMs;
+  });
+  bundleDir = candidates[0];
 }
 
 const renamedFiles = [];

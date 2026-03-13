@@ -183,10 +183,14 @@ if (icon) {
   if (!fs.existsSync(iconPath)) {
     fail(`Icon not found: ${iconPath}`);
   }
-  const result = spawnSync("npx", ["tauri", "icon", iconPath], {
+  const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+  const result = spawnSync(npxCmd, ["tauri", "icon", iconPath], {
     cwd: root,
     stdio: "inherit"
   });
+  if (result.error) {
+    console.error(`[apply-config] Failed to run ${npxCmd}: ${result.error.message}`);
+  }
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
