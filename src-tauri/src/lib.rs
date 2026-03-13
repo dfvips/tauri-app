@@ -37,7 +37,7 @@ pub fn run() {
                             let was_fullscreen = window.is_fullscreen().unwrap_or(false);
                             if was_fullscreen {
                                 let _ = window.set_fullscreen(false);
-                                tauri::async_runtime::sleep(Duration::from_millis(10)).await;
+                                std::thread::sleep(Duration::from_millis(10));
                             }
                             let _ = window.hide();
                         });
