@@ -1,17 +1,17 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 #[cfg(target_os = "macos")]
+use std::time::Duration;
+#[cfg(target_os = "macos")]
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
 #[cfg(target_os = "macos")]
-use tauri::{Manager, RunEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
 use tauri::webview::PageLoadEvent;
-use tauri::WindowEvent;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let shown = Arc::new(AtomicBool::new(false));
-    let mut builder = tauri::Builder::default()
-        .on_page_load({
+    let builder = tauri::Builder::default().on_page_load({
         let shown = shown.clone();
         move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
@@ -23,22 +23,26 @@ pub fn run() {
                 }
             }
         }
-    })
-    .on_window_event(|_window, _event| {
-        #[cfg(target_os = "macos")]
-        if let WindowEvent::CloseRequested { api, .. } = _event {
-            if _window.label() == "main" {
-                api.prevent_close();
-                if let Ok(true) = _window.is_fullscreen() {
-                    let _ = _window.set_fullscreen(false);
-                }
-                let _ = _window.hide();
-            }
-        }
     });
 
     #[cfg(target_os = "macos")]
     {
+        let builder = builder.on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let window = window.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let was_fullscreen = window.is_fullscreen().unwrap_or(false);
+                        if was_fullscreen {
+                            let _ = window.set_fullscreen(false);
+                            tauri::async_runtime::sleep(Duration::from_millis(200)).await;
+                        }
+                        let _ = window.hide();
+                    });
+                }
+            }
+        });
         builder = builder.menu(|app| {
             let app_name = app
                 .config()
@@ -61,17 +65,25 @@ pub fn run() {
         });
     }
 
-    let app = builder
-        .build(tauri::generate_context!())
-        .expect("error while running tauri application");
+        let app = builder
+            .build(tauri::generate_context!())
+            .expect("error while running tauri application");
 
-    app.run(|app_handle, _event| {
-        #[cfg(target_os = "macos")]
-        if let RunEvent::Reopen { .. } = _event {
-            if let Some(window) = app_handle.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
+        app.run(|app_handle, event| {
+            if let RunEvent::Reopen { .. } = event {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
             }
-        }
-    });
+        });
+        return;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder
+            .run(tauri::generate_context!())
+            .expect("error while running tauri application");
+    }
 }

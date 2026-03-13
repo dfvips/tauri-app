@@ -37,7 +37,19 @@ try {
 const rawName = String(config.name || "").trim();
 if (!rawName) fail("Missing required field: name");
 
-const safeName = rawName.replace(/[\\/:*?"<>|]/g, "_").trim();
+const safeName = rawName
+  .replace(/[\\/:*?"<>|]/g, "_")
+  .replace(/[：]/g, "_")
+  .trim() || "App";
+const renameOverride = String(process.env.RENAME_BASE_NAME || "").trim();
+const baseName = renameOverride || rawName;
+const outputName =
+  process.platform === "win32"
+    ? baseName
+        .replace(/[\\/:*?"<>|]/g, "_")
+        .replace(/[：]/g, "_")
+        .trim() || safeName
+    : baseName;
 function findBundleDirs(baseDir) {
   const results = [];
   function walk(dir) {
@@ -102,7 +114,9 @@ function walk(dir) {
     const base = path.basename(fullPath);
     const dotIndex = base.indexOf(".");
     const ext = dotIndex === -1 ? "" : base.slice(dotIndex + 1);
-    const newBase = ext ? `${safeName}-${suffix}.${ext}` : `${safeName}-${suffix}`;
+    const newBase = ext
+      ? `${outputName}-${suffix}.${ext}`
+      : `${outputName}-${suffix}`;
     const destPath = path.join(path.dirname(fullPath), newBase);
 
     if (destPath !== fullPath) {

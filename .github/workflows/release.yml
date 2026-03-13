@@ -75,11 +75,8 @@ jobs:
         if: startsWith(matrix.platform, 'windows')
         shell: pwsh
         run: |
-          if ($env:SAFE_APP_NAME) {
-            Add-Content -Path $env:GITHUB_ENV -Value "TEMP_PRODUCT_NAME=$env:SAFE_APP_NAME"
-          } else {
-            Add-Content -Path $env:GITHUB_ENV -Value "TEMP_PRODUCT_NAME=App"
-          }
+          Add-Content -Path $env:GITHUB_ENV -Value "TEMP_PRODUCT_NAME=bundle"
+          Add-Content -Path $env:GITHUB_ENV -Value "RENAME_BASE_NAME=bundle"
 
       - name: Apply config
         run: npm run apply-config
@@ -181,8 +178,13 @@ jobs:
           }
           const files = fs.readdirSync(dist);
           for (const file of files) {
-            if (!file.startsWith(`${safeName}-`)) continue;
-            const next = `${appName}-${file.slice(safeName.length + 1)}`;
+            let next = null;
+            if (file.startsWith(`${safeName}-`)) {
+              next = `${appName}-${file.slice(safeName.length + 1)}`;
+            } else if (file.startsWith("bundle-")) {
+              next = `${appName}-${file.slice("bundle-".length)}`;
+            }
+            if (!next) continue;
             fs.renameSync(path.join(dist, file), path.join(dist, next));
           }
           NODE
