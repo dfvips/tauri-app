@@ -18,6 +18,7 @@ function fail(message) {
 
 const suffix = readArg("--suffix");
 const outFile = readArg("--out") || "bundle-files.txt";
+const copyDir = readArg("--copy-dir");
 const configPath = path.resolve(
   root,
   process.env.APP_CONFIG || "app.config.json"
@@ -78,10 +79,16 @@ if (renamedFiles.length === 0) {
   fail("No bundle files found to upload.");
 }
 
-fs.writeFileSync(
-  path.resolve(root, outFile),
-  `${renamedFiles.join("\n")}\n`,
-  "utf8"
-);
+fs.writeFileSync(path.resolve(root, outFile), `${renamedFiles.join("\n")}\n`, "utf8");
+
+if (copyDir) {
+  const absoluteCopyDir = path.resolve(root, copyDir);
+  fs.mkdirSync(absoluteCopyDir, { recursive: true });
+  for (const rel of renamedFiles) {
+    const src = path.resolve(root, rel);
+    const dest = path.join(absoluteCopyDir, path.basename(rel));
+    fs.copyFileSync(src, dest);
+  }
+}
 
 console.log(`[release-assets] ${renamedFiles.length} files ready.`);

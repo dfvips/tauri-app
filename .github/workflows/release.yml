@@ -8,51 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  prepare-release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-      app_name: ${{ steps.cfg.outputs.name }}
-      version: ${{ steps.cfg.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: cfg
-        name: Read config
-        run: |
-          node - <<'NODE'
-          const fs = require("fs");
-          const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
-          const name = String(config.name || "App").replace(/[\r\n]+/g, " ").trim();
-          const version = String(config.version || "0.0.0").replace(/[\r\n]+/g, " ").trim();
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\nversion=${version}\n`);
-          NODE
-
-      - id: meta
-        name: Build release tag
-        run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          VERSION="${{ steps.cfg.outputs.version }}"
-          TAG="v${VERSION}-${SHORT_SHA}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.meta.outputs.tag }}
-          APP_NAME: ${{ steps.cfg.outputs.name }}
-          VERSION: ${{ steps.cfg.outputs.version }}
-          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
-        run: |
-          TITLE="${APP_NAME} ${VERSION} (${SHORT_SHA})"
-          gh release view "$TAG" >/dev/null 2>&1 || \
-            gh release create "$TAG" --title "$TITLE" --notes "Automated build." --target "$GITHUB_SHA"
-
   build:
-    needs: prepare-release
     permissions:
       contents: write
     strategy:
@@ -102,24 +58,76 @@ jobs:
       - name: Apply config
         run: npm run apply-config
 
-      - uses: tauri-apps/tauri-action@v1
-        with:
-          args: ${{ matrix.args }}
+      - name: Build
+        run: npm run tauri build -- ${{ matrix.args }}
 
       - name: Rename bundles
-        run: node scripts/release-assets.mjs --suffix ${{ matrix.artifact_suffix }} --out bundle-files.txt
+        run: node scripts/release-assets.mjs --suffix ${{ matrix.artifact_suffix }} --out bundle-files.txt --copy-dir release-assets
 
-      - name: Upload release assets
-        shell: bash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.artifact_suffix }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: cfg
+        name: Read config
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
+          const name = String(config.name || "App").replace(/[\r\n]+/g, " ").trim();
+          const version = String(config.version || "0.0.0").replace(/[\r\n]+/g, " ").trim();
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\nversion=${version}\n`);
+          NODE
+
+      - id: meta
+        name: Build release tag
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          VERSION="${{ steps.cfg.outputs.version }}"
+          TAG="v${VERSION}-${SHORT_SHA}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.prepare-release.outputs.tag }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          APP_NAME: ${{ steps.cfg.outputs.name }}
+          VERSION: ${{ steps.cfg.outputs.version }}
+          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
         run: |
-          if [ ! -s bundle-files.txt ]; then
-            echo "No bundle files to upload."
+          TITLE="${APP_NAME} ${VERSION} (${SHORT_SHA})"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "$TITLE" --notes "Automated build." --target "$GITHUB_SHA"
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          if [ ! -d dist ]; then
+            echo "No artifacts downloaded."
             exit 1
           fi
-          while IFS= read -r file; do
-            [ -z "$file" ] && continue
+          if ! find dist -type f -print -quit | grep -q .; then
+            echo "No files to upload."
+            exit 1
+          fi
+          find dist -type f -print0 | while IFS= read -r -d '' file; do
             gh release upload "$TAG" "$file" --clobber
-          done < bundle-files.txt
+          done
