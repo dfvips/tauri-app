@@ -49,8 +49,9 @@ jobs:
           const fs = require("fs");
           const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
           const name = String(config.name || "App").replace(/[\r\n]+/g, " ").trim();
+          const safe = name.replace(/[\\/:*?"<>|]/g, "_").trim() || "App";
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\n`);
-          fs.appendFileSync(process.env.GITHUB_ENV, `APP_NAME=${name}\n`);
+          fs.appendFileSync(process.env.GITHUB_ENV, `APP_NAME=${name}\nSAFE_APP_NAME=${safe}\n`);
           NODE
 
       - uses: actions/setup-node@v4
@@ -66,6 +67,10 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Set Windows temp product name
+        if: startsWith(matrix.platform, 'windows')
+        run: echo "TEMP_PRODUCT_NAME=$SAFE_APP_NAME" >> "$GITHUB_ENV"
 
       - name: Apply config
         run: npm run apply-config
@@ -127,8 +132,10 @@ jobs:
           const fs = require("fs");
           const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
           const name = String(config.name || "App").replace(/[\r\n]+/g, " ").trim();
+          const safe = name.replace(/[\\/:*?"<>|]/g, "_").trim() || "App";
           const version = String(config.version || "0.0.0").replace(/[\r\n]+/g, " ").trim();
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\nversion=${version}\n`);
+          fs.appendFileSync(process.env.GITHUB_ENV, `APP_NAME=${name}\nSAFE_APP_NAME=${safe}\n`);
           NODE
 
       - id: meta
@@ -144,6 +151,29 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+
+      - name: Rename assets to original app name
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+          const appName = process.env.APP_NAME || "App";
+          const safeName = process.env.SAFE_APP_NAME || appName;
+          if (appName === safeName) {
+            process.exit(0);
+          }
+          const dist = path.resolve("dist");
+          if (!fs.existsSync(dist)) {
+            console.error("dist not found");
+            process.exit(1);
+          }
+          const files = fs.readdirSync(dist);
+          for (const file of files) {
+            if (!file.startsWith(`${safeName}-`)) continue;
+            const next = `${appName}-${file.slice(safeName.length + 1)}`;
+            fs.renameSync(path.join(dist, file), path.join(dist, next));
+          }
+          NODE
 
       - name: Create release
         env:

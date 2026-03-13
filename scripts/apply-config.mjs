@@ -47,6 +47,7 @@ try {
 }
 
 const name = (config.name || "").trim();
+const tempProductName = String(process.env.TEMP_PRODUCT_NAME || "").trim();
 const rawUrl = (config.url || "").trim();
 const author = (config.author || "").trim();
 const version = (config.version || "").trim();
@@ -126,7 +127,7 @@ try {
   fail(`Invalid JSON in ${tauriConfigPath}: ${err.message}`);
 }
 
-tauriConfig.productName = name;
+tauriConfig.productName = tempProductName || name;
 if (identifier) tauriConfig.identifier = identifier;
 if (version) tauriConfig.version = version;
 if (tauriConfig?.app?.windows?.length) {
@@ -140,16 +141,8 @@ if (tauriConfig?.app?.windows?.length) {
 }
 tauriConfig.bundle = tauriConfig.bundle || {};
 if (author) tauriConfig.bundle.publisher = author;
-
-const wixSafeName = name
-  .replace(/[\\/:*?"<>|]/g, " ")
-  .replace(/[：]/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-if (wixSafeName) {
-  tauriConfig.bundle.windows = tauriConfig.bundle.windows || {};
-  tauriConfig.bundle.windows.wix = tauriConfig.bundle.windows.wix || {};
-  tauriConfig.bundle.windows.wix.productName = wixSafeName;
+if (tauriConfig.bundle?.windows?.wix?.productName) {
+  delete tauriConfig.bundle.windows.wix.productName;
 }
 
 fs.writeFileSync(
