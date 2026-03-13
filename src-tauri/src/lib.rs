@@ -2,12 +2,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
+#[cfg(target_os = "macos")]
+use tauri::{Manager, RunEvent};
 use tauri::webview::PageLoadEvent;
+use tauri::WindowEvent;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let shown = Arc::new(AtomicBool::new(false));
-    let mut builder = tauri::Builder::default().on_page_load({
+    let mut builder = tauri::Builder::default()
+        .on_page_load({
         let shown = shown.clone();
         move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
@@ -17,6 +21,15 @@ pub fn run() {
                 {
                     let _ = webview.window().show();
                 }
+            }
+        }
+    })
+    .on_window_event(|window, event| {
+        #[cfg(target_os = "macos")]
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            if window.label() == "main" {
+                api.prevent_close();
+                let _ = window.hide();
             }
         }
     });
@@ -45,7 +58,17 @@ pub fn run() {
         });
     }
 
-    builder
-        .run(tauri::generate_context!())
+    let app = builder
+        .build(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    app.run(|app_handle, event| {
+        #[cfg(target_os = "macos")]
+        if let RunEvent::Reopen { .. } = event {
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+    });
 }

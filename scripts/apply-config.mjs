@@ -48,6 +48,13 @@ try {
 
 const name = (config.name || "").trim();
 const tempProductName = String(process.env.TEMP_PRODUCT_NAME || "").trim();
+const safeTempProductName = tempProductName
+  ? tempProductName
+      .replace(/[\\/:*?"<>|]/g, " ")
+      .replace(/[：]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  : "";
 const rawUrl = (config.url || "").trim();
 const author = (config.author || "").trim();
 const version = (config.version || "").trim();
@@ -127,7 +134,7 @@ try {
   fail(`Invalid JSON in ${tauriConfigPath}: ${err.message}`);
 }
 
-tauriConfig.productName = tempProductName || name;
+tauriConfig.productName = safeTempProductName || name;
 if (identifier) tauriConfig.identifier = identifier;
 if (version) tauriConfig.version = version;
 if (tauriConfig?.app?.windows?.length) {

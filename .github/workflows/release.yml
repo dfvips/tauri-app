@@ -49,7 +49,10 @@ jobs:
           const fs = require("fs");
           const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
           const name = String(config.name || "App").replace(/[\r\n]+/g, " ").trim();
-          const safe = name.replace(/[\\/:*?"<>|]/g, "_").trim() || "App";
+          const safe = name
+            .replace(/[\\/:*?"<>|]/g, "_")
+            .replace(/[：]/g, "_")
+            .trim() || "App";
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\n`);
           fs.appendFileSync(process.env.GITHUB_ENV, `APP_NAME=${name}\nSAFE_APP_NAME=${safe}\n`);
           NODE
@@ -132,7 +135,10 @@ jobs:
           const fs = require("fs");
           const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
           const name = String(config.name || "App").replace(/[\r\n]+/g, " ").trim();
-          const safe = name.replace(/[\\/:*?"<>|]/g, "_").trim() || "App";
+          const safe = name
+            .replace(/[\\/:*?"<>|]/g, "_")
+            .replace(/[：]/g, "_")
+            .trim() || "App";
           const version = String(config.version || "0.0.0").replace(/[\r\n]+/g, " ").trim();
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\nversion=${version}\n`);
           fs.appendFileSync(process.env.GITHUB_ENV, `APP_NAME=${name}\nSAFE_APP_NAME=${safe}\n`);
