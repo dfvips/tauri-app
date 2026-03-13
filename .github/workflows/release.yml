@@ -19,22 +19,27 @@ jobs:
             target: x86_64-pc-windows-msvc
             args: --target x86_64-pc-windows-msvc
             artifact_suffix: windows-x64
+            bundle: false
           - platform: windows-latest
             target: i686-pc-windows-msvc
             args: --target i686-pc-windows-msvc
             artifact_suffix: windows-x86
+            bundle: false
           - platform: windows-11-arm
             target: aarch64-pc-windows-msvc
             args: --target aarch64-pc-windows-msvc
             artifact_suffix: windows-arm64
+            bundle: false
           - platform: macos-26-intel
             target: x86_64-apple-darwin
             args: --target x86_64-apple-darwin
             artifact_suffix: mac-x64
+            bundle: true
           - platform: macos-26
             target: aarch64-apple-darwin
             args: --target aarch64-apple-darwin
             artifact_suffix: mac-arm64
+            bundle: true
 
     runs-on: ${{ matrix.platform }}
 
@@ -111,11 +116,29 @@ jobs:
           fi
           echo "APPLE_SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
 
-      - name: Build
+      - name: Build (bundle)
+        if: matrix.bundle
         run: npm run tauri build -- ${{ matrix.args }}
 
+      - name: Build (no bundle)
+        if: ${{ !matrix.bundle }}
+        run: npm run tauri build -- ${{ matrix.args }} --no-bundle
+
       - name: Rename bundles
+        if: matrix.bundle
         run: node scripts/release-assets.mjs --suffix ${{ matrix.artifact_suffix }} --out bundle-files.txt --copy-dir release-assets --bundle-dir src-tauri/target/${{ matrix.target }}/release/bundle
+
+      - name: Collect exe
+        if: ${{ !matrix.bundle }}
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          EXE="src-tauri/target/${{ matrix.target }}/release/tauri-webapp-wrapper.exe"
+          if [ ! -f "$EXE" ]; then
+            echo "Exe not found: $EXE"
+            exit 1
+          fi
+          cp "$EXE" "release-assets/bundle-${{ matrix.artifact_suffix }}.exe"
 
       - uses: actions/upload-artifact@v4
         with:

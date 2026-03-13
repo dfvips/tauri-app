@@ -33,13 +33,16 @@ pub fn run() {
                     if window.label() == "main" {
                         api.prevent_close();
                         let window = window.clone();
-                        tauri::async_runtime::spawn(async move {
+                        std::thread::spawn(move || {
                             let was_fullscreen = window.is_fullscreen().unwrap_or(false);
                             if was_fullscreen {
                                 let _ = window.set_fullscreen(false);
-                                std::thread::sleep(Duration::from_millis(10));
+                                std::thread::sleep(Duration::from_millis(350));
                             }
-                            let _ = window.hide();
+                            let window_hide = window.clone();
+                            let _ = window.run_on_main_thread(move || {
+                                let _ = window_hide.hide();
+                            });
                         });
                     }
                 }
