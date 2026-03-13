@@ -41,6 +41,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - id: cfg
+        name: Read config
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
+          const name = String(config.name || "App").replace(/[\r\n]+/g, " ").trim();
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\n`);
+          fs.appendFileSync(process.env.GITHUB_ENV, `APP_NAME=${name}\n`);
+          NODE
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -58,6 +70,36 @@ jobs:
       - name: Apply config
         run: npm run apply-config
 
+      - name: Import macOS signing certificate
+        if: startsWith(matrix.platform, 'macos')
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATE_P12_BASE64" ]; then
+            echo "Missing MACOS_CERTIFICATE_P12_BASE64 secret."
+            exit 1
+          fi
+          if [ -z "$MACOS_CERTIFICATE_PASSWORD" ]; then
+            echo "Missing MACOS_CERTIFICATE_PASSWORD secret."
+            exit 1
+          fi
+          CERT_PATH="$RUNNER_TEMP/macos_cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/macos_signing.keychain-db"
+          echo "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -n 1 | awk '{print $2}')
+          if [ -z "$IDENTITY" ]; then
+            echo "No code signing identity found."
+            exit 1
+          fi
+          echo "APPLE_SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
       - name: Build
         run: npm run tauri build -- ${{ matrix.args }}
 
@@ -66,7 +108,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: bundle-${{ matrix.artifact_suffix }}
+          name: ${{ env.APP_NAME }}-${{ matrix.artifact_suffix }}
           path: release-assets/*
           if-no-files-found: error
 

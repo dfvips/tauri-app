@@ -141,6 +141,17 @@ if (tauriConfig?.app?.windows?.length) {
 tauriConfig.bundle = tauriConfig.bundle || {};
 if (author) tauriConfig.bundle.publisher = author;
 
+const wixSafeName = name
+  .replace(/[\\/:*?"<>|]/g, " ")
+  .replace(/[：]/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+if (wixSafeName) {
+  tauriConfig.bundle.windows = tauriConfig.bundle.windows || {};
+  tauriConfig.bundle.windows.wix = tauriConfig.bundle.windows.wix || {};
+  tauriConfig.bundle.windows.wix.productName = wixSafeName;
+}
+
 fs.writeFileSync(
   tauriConfigPath,
   `${JSON.stringify(tauriConfig, null, 2)}\n`,
