@@ -1,0 +1,16 @@
+{
+  "name": "tauri-webapp-wrapper",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "apply-config": "node scripts/apply-config.mjs",
+    "pretauri": "npm run apply-config",
+    "dev": "npm run tauri dev",
+    "build": "npm run apply-config && npm run tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

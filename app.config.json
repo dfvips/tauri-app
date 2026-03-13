@@ -1,0 +1,13 @@
+{
+  "name": "三国杀：一将成名",
+  "url": "https://web.sanguosha.com/login/x/index",
+  "author": "杭州游卡网络技术有限公司",
+  "version": "1.0.337",
+  "icon": "assets/app-icon.png",
+  "identifier": "com.yoka.sgstenth",
+  "window": {
+    "width": 1280,
+    "height": 720,
+    "visible": false
+  }
+}
