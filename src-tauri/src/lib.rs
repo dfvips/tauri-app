@@ -24,12 +24,12 @@ pub fn run() {
             }
         }
     })
-    .on_window_event(|window, event| {
+    .on_window_event(|_window, _event| {
         #[cfg(target_os = "macos")]
-        if let WindowEvent::CloseRequested { api, .. } = event {
-            if window.label() == "main" {
+        if let WindowEvent::CloseRequested { api, .. } = _event {
+            if _window.label() == "main" {
                 api.prevent_close();
-                let _ = window.hide();
+                let _ = _window.hide();
             }
         }
     });
@@ -62,9 +62,9 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
 
-    app.run(|app_handle, event| {
+    app.run(|app_handle, _event| {
         #[cfg(target_os = "macos")]
-        if let RunEvent::Reopen { .. } = event {
+        if let RunEvent::Reopen { .. } = _event {
             if let Some(window) = app_handle.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();

@@ -73,7 +73,12 @@ jobs:
 
       - name: Set Windows temp product name
         if: startsWith(matrix.platform, 'windows')
-        run: echo "TEMP_PRODUCT_NAME=$SAFE_APP_NAME" >> "$GITHUB_ENV"
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const safe = process.env.SAFE_APP_NAME || "App";
+          fs.appendFileSync(process.env.GITHUB_ENV, `TEMP_PRODUCT_NAME=${safe}\n`);
+          NODE
 
       - name: Apply config
         run: npm run apply-config
