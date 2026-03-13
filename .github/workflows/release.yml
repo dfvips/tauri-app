@@ -184,16 +184,12 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Rename assets to original app name
+      - name: Rename assets to safe app name
         run: |
           node - <<'NODE'
           const fs = require("fs");
           const path = require("path");
-          const appName = process.env.APP_NAME || "App";
-          const safeName = process.env.SAFE_APP_NAME || appName;
-          if (appName === safeName) {
-            process.exit(0);
-          }
+          const safeName = process.env.SAFE_APP_NAME || "App";
           const dist = path.resolve("dist");
           if (!fs.existsSync(dist)) {
             console.error("dist not found");
@@ -202,10 +198,8 @@ jobs:
           const files = fs.readdirSync(dist);
           for (const file of files) {
             let next = null;
-            if (file.startsWith(`${safeName}-`)) {
-              next = `${appName}-${file.slice(safeName.length + 1)}`;
-            } else if (file.startsWith("bundle-")) {
-              next = `${appName}-${file.slice("bundle-".length)}`;
+            if (file.startsWith("bundle-")) {
+              next = `${safeName}-${file.slice("bundle-".length)}`;
             }
             if (!next) continue;
             fs.renameSync(path.join(dist, file), path.join(dist, next));

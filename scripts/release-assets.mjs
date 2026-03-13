@@ -43,13 +43,10 @@ const safeName = rawName
   .trim() || "App";
 const renameOverride = String(process.env.RENAME_BASE_NAME || "").trim();
 const baseName = renameOverride || rawName;
-const outputName =
-  process.platform === "win32"
-    ? baseName
-        .replace(/[\\/:*?"<>|]/g, "_")
-        .replace(/[：]/g, "_")
-        .trim() || safeName
-    : baseName;
+const outputName = (baseName || safeName)
+  .replace(/[\\/:*?"<>|]/g, "_")
+  .replace(/[：]/g, "_")
+  .trim() || safeName;
 function findBundleDirs(baseDir) {
   const results = [];
   function walk(dir) {
@@ -112,10 +109,9 @@ function walk(dir) {
     if (!entry.isFile()) continue;
 
     const base = path.basename(fullPath);
-    const dotIndex = base.indexOf(".");
-    const ext = dotIndex === -1 ? "" : base.slice(dotIndex + 1);
+    const ext = path.extname(base);
     const newBase = ext
-      ? `${outputName}-${suffix}.${ext}`
+      ? `${outputName}-${suffix}${ext}`
       : `${outputName}-${suffix}`;
     const destPath = path.join(path.dirname(fullPath), newBase);
 
