@@ -29,6 +29,9 @@ pub fn run() {
         if let WindowEvent::CloseRequested { api, .. } = _event {
             if _window.label() == "main" {
                 api.prevent_close();
+                if let Ok(true) = _window.is_fullscreen() {
+                    let _ = _window.set_fullscreen(false);
+                }
                 let _ = _window.hide();
             }
         }
