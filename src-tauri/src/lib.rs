@@ -8,13 +8,18 @@ use objc2_foundation::NSPoint;
 #[cfg(target_os = "macos")]
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
 #[cfg(target_os = "macos")]
-use tauri::{LogicalSize, Manager, RunEvent, Size, WebviewWindowBuilder, WindowEvent};
+use tauri::{
+    LogicalSize, Manager, PhysicalPosition, Position, RunEvent, Size, WebviewWindowBuilder,
+    WindowEvent,
+};
 use tauri::webview::PageLoadEvent;
 
 #[cfg(target_os = "macos")]
 static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 #[cfg(target_os = "macos")]
 static SUPPRESS_EXIT: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "macos")]
+static LAST_CLOSE_WAS_FULLSCREEN: AtomicBool = AtomicBool::new(false);
 
 #[cfg(target_os = "macos")]
 fn exit_fullscreen_no_anim(window: &tauri::Window) {
@@ -114,6 +119,7 @@ pub fn run() {
                     if let Some(app) = APP_HANDLE.get() {
                         SUPPRESS_EXIT.store(true, Ordering::SeqCst);
                         let was_fullscreen = window.is_fullscreen().unwrap_or(false);
+                        LAST_CLOSE_WAS_FULLSCREEN.store(was_fullscreen, Ordering::SeqCst);
 
                         let window_hide = window.clone();
                         let _ = app.run_on_main_thread(move || {
@@ -170,15 +176,33 @@ pub fn run() {
                 }
                 RunEvent::Reopen { .. } => {
                     if let Some(window) = app_handle.get_webview_window("main") {
+                        let was_fullscreen = LAST_CLOSE_WAS_FULLSCREEN.swap(false, Ordering::SeqCst);
                         set_webview_alpha(&window, 1.0);
-                        if let Some(cfg) = app_handle.config().app.windows.get(0) {
-                            let width = cfg.width;
-                            let height = cfg.height;
-                            if width > 0.0 && height > 0.0 {
-                                let _ = window.set_size(Size::Logical(LogicalSize {
-                                    width,
-                                    height,
-                                }));
+                        if was_fullscreen {
+                            if let Some(cfg) = app_handle.config().app.windows.get(0) {
+                                let width = cfg.width;
+                                let height = cfg.height;
+                                if width > 0.0 && height > 0.0 {
+                                    let _ = window.set_size(Size::Logical(LogicalSize {
+                                        width,
+                                        height,
+                                    }));
+                                    if let Ok(Some(monitor)) = window.primary_monitor() {
+                                        let work = monitor.work_area();
+                                        let scale = monitor.scale_factor();
+                                        let w = (width * scale).round() as i32;
+                                        let h = (height * scale).round() as i32;
+                                        let x = work.position.x
+                                            + ((work.size.width as i32 - w) / 2);
+                                        let y = work.position.y
+                                            + ((work.size.height as i32 - h) / 2);
+                                        let _ = window.set_position(Position::Physical(
+                                            PhysicalPosition { x, y },
+                                        ));
+                                    } else {
+                                        let _ = window.center();
+                                    }
+                                }
                             }
                         }
                         let _ = window.show();

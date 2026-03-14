@@ -128,6 +128,12 @@ jobs:
         if: matrix.bundle
         run: node scripts/release-assets.mjs --suffix ${{ matrix.artifact_suffix }} --out bundle-files.txt --copy-dir release-assets --bundle-dir src-tauri/target/${{ matrix.target }}/release/bundle
 
+      - name: Keep only dmg
+        if: matrix.bundle
+        shell: bash
+        run: |
+          find release-assets -type f ! -name "*.dmg" -delete
+
       - name: Collect exe
         if: ${{ !matrix.bundle }}
         shell: bash
@@ -227,10 +233,10 @@ jobs:
             echo "No artifacts downloaded."
             exit 1
           fi
-          if ! find dist -type f -print -quit | grep -q .; then
+          if ! find dist -type f \( -name "*.dmg" -o -name "*.exe" \) -print -quit | grep -q .; then
             echo "No files to upload."
             exit 1
           fi
-          find dist -type f -print0 | while IFS= read -r -d '' file; do
+          find dist -type f \( -name "*.dmg" -o -name "*.exe" \) -print0 | while IFS= read -r -d '' file; do
             gh release upload "$TAG" "$file" --clobber
           done

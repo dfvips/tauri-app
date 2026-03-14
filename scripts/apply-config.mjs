@@ -16,6 +16,10 @@ function fail(message) {
   process.exit(1);
 }
 
+function tomlString(value) {
+  return JSON.stringify(String(value ?? ""));
+}
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -186,6 +190,44 @@ if (fs.existsSync(cargoTomlPath)) {
       );
     }
   }
+
+  if (name || version) {
+    const sectionHeader = "[package.metadata.tauri-winres]";
+    const productNameLine = `ProductName = ${tomlString(name)}`;
+    const productVersionLine = `ProductVersion = ${tomlString(version)}`;
+    const lines = cargoToml.split(/\r?\n/);
+    let headerIndex = lines.findIndex((line) => line.trim() === sectionHeader);
+    if (headerIndex === -1) {
+      lines.push("", sectionHeader);
+      headerIndex = lines.length - 1;
+    }
+    let endIndex = lines.length;
+    for (let i = headerIndex + 1; i < lines.length; i += 1) {
+      if (/^\s*\[.+\]\s*$/.test(lines[i])) {
+        endIndex = i;
+        break;
+      }
+    }
+    let hasProductName = false;
+    let hasProductVersion = false;
+    for (let i = headerIndex + 1; i < endIndex; i += 1) {
+      if (/^\s*ProductName\s*=/.test(lines[i])) {
+        lines[i] = productNameLine;
+        hasProductName = true;
+      } else if (/^\s*ProductVersion\s*=/.test(lines[i])) {
+        lines[i] = productVersionLine;
+        hasProductVersion = true;
+      }
+    }
+    const insertLines = [];
+    if (!hasProductName) insertLines.push(productNameLine);
+    if (!hasProductVersion) insertLines.push(productVersionLine);
+    if (insertLines.length) {
+      lines.splice(endIndex, 0, ...insertLines);
+    }
+    cargoToml = `${lines.join("\n")}\n`;
+  }
+
   fs.writeFileSync(cargoTomlPath, cargoToml, "utf8");
 }
 
