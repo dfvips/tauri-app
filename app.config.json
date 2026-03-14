@@ -4,7 +4,7 @@
   "author": "MengYX",
   "version": "0.6.0",
   "icon": "assets/app-icon.png",
-  "identifier": "com.yoka.sgstenth",
+  "identifier": "com.mengyx.um",
   "window": {
     "width": 1280,
     "height": 720,
