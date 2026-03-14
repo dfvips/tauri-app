@@ -80,8 +80,7 @@ jobs:
         if: startsWith(matrix.platform, 'windows')
         shell: pwsh
         run: |
-          Add-Content -Path $env:GITHUB_ENV -Value "TEMP_PRODUCT_NAME=bundle"
-          Add-Content -Path $env:GITHUB_ENV -Value "RENAME_BASE_NAME=bundle"
+          Add-Content -Path $env:GITHUB_ENV -Value "TEMP_PRODUCT_NAME="
 
       - name: Apply config
         run: npm run apply-config
@@ -144,7 +143,26 @@ jobs:
             echo "Exe not found: $EXE"
             exit 1
           fi
-          cp "$EXE" "release-assets/bundle-${{ matrix.artifact_suffix }}.exe"
+          node - <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+          const { pinyin } = require("pinyin-pro");
+          const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
+          const name = String(config.name || "App").trim();
+          const py = pinyin(name, { toneType: "none", type: "array" })
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim() || name;
+          const safe = py
+            .replace(/[\\/:*?"<>|]/g, "_")
+            .replace(/[：]/g, "_")
+            .replace(/\s+/g, "_")
+            .trim() || "App";
+          const suffix = "${{ matrix.artifact_suffix }}";
+          const src = path.resolve(process.cwd(), "src-tauri/target/${{ matrix.target }}/release/tauri-webapp-wrapper.exe");
+          const dest = path.resolve(process.cwd(), "release-assets", `${safe}-${suffix}.exe`);
+          fs.copyFileSync(src, dest);
+          NODE
 
       - uses: actions/upload-artifact@v4
         with:
@@ -160,20 +178,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
       - id: cfg
         name: Read config
         run: |
           node - <<'NODE'
           const fs = require("fs");
+          const { pinyin } = require("pinyin-pro");
           const config = JSON.parse(fs.readFileSync("app.config.json", "utf8"));
           const name = String(config.name || "App").replace(/[\r\n]+/g, " ").trim();
-          const safe = name
+          const py = pinyin(name, { toneType: "none", type: "array" })
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim() || name;
+          const safe = py
             .replace(/[\\/:*?"<>|]/g, "_")
             .replace(/[：]/g, "_")
+            .replace(/\s+/g, "_")
             .trim() || "App";
           const version = String(config.version || "0.0.0").replace(/[\r\n]+/g, " ").trim();
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\nversion=${version}\n`);
-          fs.appendFileSync(process.env.GITHUB_ENV, `APP_NAME=${name}\nSAFE_APP_NAME=${safe}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${py}\nversion=${version}\n`);
+          fs.appendFileSync(process.env.GITHUB_ENV, `APP_NAME=${py}\nSAFE_APP_NAME=${safe}\n`);
           NODE
 
       - id: meta
@@ -189,28 +221,6 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-
-      - name: Rename assets to safe app name
-        run: |
-          node - <<'NODE'
-          const fs = require("fs");
-          const path = require("path");
-          const safeName = process.env.SAFE_APP_NAME || "App";
-          const dist = path.resolve("dist");
-          if (!fs.existsSync(dist)) {
-            console.error("dist not found");
-            process.exit(1);
-          }
-          const files = fs.readdirSync(dist);
-          for (const file of files) {
-            let next = null;
-            if (file.startsWith("bundle-")) {
-              next = `${safeName}-${file.slice("bundle-".length)}`;
-            }
-            if (!next) continue;
-            fs.renameSync(path.join(dist, file), path.join(dist, next));
-          }
-          NODE
 
       - name: Create release
         env:

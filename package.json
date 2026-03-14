@@ -11,6 +11,7 @@
     "tauri": "tauri"
   },
   "devDependencies": {
+    "pinyin-pro": "^3.20.4",
     "@tauri-apps/cli": "^2"
   }
 }

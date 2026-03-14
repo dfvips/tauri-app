@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { pinyin } from "pinyin-pro";
 
 const root = process.cwd();
 const args = process.argv.slice(2);
@@ -37,15 +38,31 @@ try {
 const rawName = String(config.name || "").trim();
 if (!rawName) fail("Missing required field: name");
 
-const safeName = rawName
+function toPinyinName(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  const py = pinyin(trimmed, {
+    toneType: "none",
+    type: "array",
+  })
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return py || trimmed;
+}
+
+const pinyinName = toPinyinName(rawName);
+const safeName = pinyinName
   .replace(/[\\/:*?"<>|]/g, "_")
   .replace(/[：]/g, "_")
+  .replace(/\s+/g, "_")
   .trim() || "App";
 const renameOverride = String(process.env.RENAME_BASE_NAME || "").trim();
-const baseName = renameOverride || rawName;
+const baseName = renameOverride || pinyinName || rawName;
 const outputName = (baseName || safeName)
   .replace(/[\\/:*?"<>|]/g, "_")
   .replace(/[：]/g, "_")
+  .replace(/\s+/g, "_")
   .trim() || safeName;
 function findBundleDirs(baseDir) {
   const results = [];
